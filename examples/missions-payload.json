@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Khởi động",
+    "description": "Nhiệm vụ làm quen với bản thân",
+    "order": 1,
+    "steps": [
+      {
+        "order": 1,
+        "type": "image_upload",
+        "title": "Upload 1 tấm ảnh bản thân",
+        "config": { "count": 1 }
+      },
+      {
+        "order": 2,
+        "type": "text_list",
+        "title": "Nhập 3 điểm mạnh",
+        "config": { "count": 3, "label": "Điểm mạnh" }
+      },
+      {
+        "order": 3,
+        "type": "text_list",
+        "title": "Nhập 3 sở thích",
+        "config": { "count": 3, "label": "Sở thích" }
+      }
+    ]
+  },
+  {
+    "name": "Kho báu nghề nghiệp",
+    "description": "Khám phá các việc làm tương lai và mức độ phù hợp",
+    "order": 2,
+    "steps": [
+      {
+        "order": 1,
+        "type": "text_list",
+        "title": "Nhập 5 việc làm tương lai muốn làm",
+        "config": { "count": 5, "label": "Việc làm" }
+      },
+      {
+        "order": 2,
+        "type": "star_rating",
+        "title": "Mức độ hứng thú của từng việc làm (1-5 sao)",
+        "config": { "linkedToStepIndex": 0, "maxStars": 5, "label": "Mức độ hứng thú" }
+      },
+      {
+        "order": 3,
+        "type": "star_rating",
+        "title": "Mức độ phù hợp của từng việc làm (1-5 sao)",
+        "config": { "linkedToStepIndex": 0, "maxStars": 5, "label": "Mức độ phù hợp" }
+      }
+    ]
+  }
+]
