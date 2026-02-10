@@ -55,6 +55,36 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// Lấy list user (role=user) theo mentorId, sắp xếp points cao -> thấp
+exports.getUsersByMentorId = async (req, res) => {
+  try {
+    const { mentorId } = req.params;
+
+    const users = await User.find({ role: "user", mentorId })
+      .select("-password")
+      .populate("mentorId", "-password")
+      .sort({ points: -1 });
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: "Lỗi server" });
+  }
+};
+
+// Lấy list tất cả user (role=user), sắp xếp points cao -> thấp
+exports.getLeaderboard = async (req, res) => {
+  try {
+    const users = await User.find({ role: "user" })
+      .select("-password")
+      .populate("mentorId", "-password")
+      .sort({ points: -1 });
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: "Lỗi server" });
+  }
+};
+
 exports.updateUser = async (req, res) => {
   try {
     const { username, email, role } = req.body;

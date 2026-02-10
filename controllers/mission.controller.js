@@ -3,9 +3,10 @@ const { uploadImage } = require("../services/imgbb.service.js");
 
 exports.getAllMissions = async (req, res) => {
   try {
-    const { isActive } = req.query;
+    const { isActive, mapId } = req.query;
     const filter = {};
     if (isActive !== undefined) filter.isActive = isActive === "true";
+    if (mapId) filter.mapId = mapId;
 
     const missions = await Mission.find(filter).sort({ order: 1, createdAt: 1 });
     res.json(missions);
@@ -28,7 +29,7 @@ exports.getMissionById = async (req, res) => {
 
 exports.createMission = async (req, res) => {
   try {
-    const { name, description, order, steps, isActive } = req.body;
+    const { mapId, name, description, order, steps, isActive } = req.body;
 
     if (!name || !Array.isArray(steps) || steps.length === 0) {
       return res.status(400).json({
@@ -37,6 +38,7 @@ exports.createMission = async (req, res) => {
     }
 
     const mission = new Mission({
+      mapId: mapId || null,
       name,
       description: description || "",
       order: order != null ? Number(order) : 0,
@@ -61,9 +63,10 @@ exports.createMission = async (req, res) => {
 
 exports.updateMission = async (req, res) => {
   try {
-    const { name, description, order, steps, isActive } = req.body;
+    const { mapId, name, description, order, steps, isActive } = req.body;
     const updateData = {};
 
+    if (mapId !== undefined) updateData.mapId = mapId || null;
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (order !== undefined) updateData.order = Number(order);

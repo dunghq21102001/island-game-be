@@ -21,6 +21,7 @@ const stepSchema = new mongoose.Schema(
 );
 
 const missionSchema = new mongoose.Schema({
+  mapId: { type: mongoose.Schema.Types.ObjectId, ref: "Map", default: null },
   name: { type: String, required: true },
   description: { type: String, default: "" },
   order: { type: Number, default: 0 },
