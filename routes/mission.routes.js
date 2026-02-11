@@ -6,6 +6,7 @@ const { requireRole } = require("../middleware/role.middleware.js");
 
 // Public (hoặc dùng authMiddleware nếu muốn chỉ user đăng nhập mới xem)
 router.get("/", missionController.getAllMissions);
+router.get("/map/:mapId", missionController.getMissionsByMapId);
 router.get("/:id", missionController.getMissionById);
 
 // Upload ảnh (user đăng nhập có thể upload khi hoàn thành step)

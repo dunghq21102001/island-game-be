@@ -5,6 +5,7 @@ const connectDB = require("./config/database.js");
 const authRoutes = require("./routes/auth.routes.js");
 const userRoutes = require("./routes/user.routes.js");
 const missionRoutes = require("./routes/mission.routes.js");
+const submissionRoutes = require("./routes/submission.routes.js");
 
 const app = express();
 
@@ -19,13 +20,15 @@ app.use(
 
 app.options("*", cors());
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 connectDB();
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/missions", missionRoutes);
+app.use("/api/submissions", submissionRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {

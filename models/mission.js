@@ -21,10 +21,13 @@ const stepSchema = new mongoose.Schema(
 );
 
 const missionSchema = new mongoose.Schema({
-  mapId: { type: mongoose.Schema.Types.ObjectId, ref: "Map", default: null },
+  mapId: { type: Number, default: null },
   name: { type: String, required: true },
   description: { type: String, default: "" },
   order: { type: Number, default: 0 },
+  /** Tọa độ trên ảnh bản đồ (đơn vị %, px tùy frontend) */
+  x: { type: Number, default: 0 },
+  y: { type: Number, default: 0 },
   steps: [stepSchema],
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },

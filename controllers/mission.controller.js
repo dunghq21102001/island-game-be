@@ -15,6 +15,19 @@ exports.getAllMissions = async (req, res) => {
   }
 };
 
+/** Lấy danh sách nhiệm vụ theo mapId (để hiển thị lên ảnh bản đồ theo x, y) */
+exports.getMissionsByMapId = async (req, res) => {
+  try {
+    const { mapId } = req.params;
+    const missions = await Mission.find({ mapId, isActive: true })
+      .sort({ order: 1, createdAt: 1 })
+      .lean();
+    res.json(missions);
+  } catch (error) {
+    res.status(500).json({ error: "Lỗi server" });
+  }
+};
+
 exports.getMissionById = async (req, res) => {
   try {
     const mission = await Mission.findById(req.params.id);
@@ -29,7 +42,7 @@ exports.getMissionById = async (req, res) => {
 
 exports.createMission = async (req, res) => {
   try {
-    const { mapId, name, description, order, steps, isActive } = req.body;
+    const { mapId, name, description, order, x, y, steps, isActive } = req.body;
 
     if (!name || !Array.isArray(steps) || steps.length === 0) {
       return res.status(400).json({
@@ -42,6 +55,8 @@ exports.createMission = async (req, res) => {
       name,
       description: description || "",
       order: order != null ? Number(order) : 0,
+      x: x != null ? Number(x) : 0,
+      y: y != null ? Number(y) : 0,
       steps: steps.map((s, i) => ({
         order: s.order != null ? s.order : i + 1,
         type: s.type,
@@ -63,13 +78,15 @@ exports.createMission = async (req, res) => {
 
 exports.updateMission = async (req, res) => {
   try {
-    const { mapId, name, description, order, steps, isActive } = req.body;
+    const { mapId, name, description, order, x, y, steps, isActive } = req.body;
     const updateData = {};
 
     if (mapId !== undefined) updateData.mapId = mapId || null;
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (order !== undefined) updateData.order = Number(order);
+    if (x !== undefined) updateData.x = Number(x);
+    if (y !== undefined) updateData.y = Number(y);
     if (isActive !== undefined) updateData.isActive = isActive;
     if (Array.isArray(steps)) {
       updateData.steps = steps.map((s, i) => ({
