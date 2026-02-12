@@ -11,6 +11,13 @@ router.post(
   submissionController.submitMission
 );
 
+// User: kiểm tra đã làm bài (mission) đó chưa
+router.get(
+  "/check/:missionId",
+  authMiddleware,
+  submissionController.checkSubmission
+);
+
 // User: xem lịch sử bài làm và điểm
 router.get(
   "/me",

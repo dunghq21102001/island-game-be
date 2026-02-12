@@ -41,6 +41,32 @@ exports.submitMission = async (req, res) => {
 };
 
 /**
+ * User kiểm tra đã làm bài (mission) đó chưa.
+ * GET /submission/check/:missionId
+ */
+exports.checkSubmission = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { missionId } = req.params;
+
+    if (!missionId) {
+      return res.status(400).json({ error: "Thiếu missionId" });
+    }
+
+    const submission = await Submission.findOne({ userId, missionId })
+      .populate("missionId", "name description steps order mapId")
+      .lean();
+
+    res.json({
+      submitted: !!submission,
+      submission: submission || null,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Lỗi server" });
+  }
+};
+
+/**
  * User xem lịch sử bài làm của mình và điểm đã được chấm.
  */
 exports.getMySubmissions = async (req, res) => {
