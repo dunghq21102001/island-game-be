@@ -25,6 +25,13 @@ router.get(
   submissionController.getMySubmissions
 );
 
+// User: xem lại các mission đã làm trên map (cho bước 3 mission "đối chiếu")
+router.get(
+  "/me/map/:mapId",
+  authMiddleware,
+  submissionController.getMySubmissionsByMapId
+);
+
 // Mentor: xem danh sách bài làm của user do mình quản lý
 router.get(
   "/mentor",
@@ -33,7 +40,7 @@ router.get(
   submissionController.getSubmissionsByMentor
 );
 
-// Mentor: chấm điểm bài làm (cộng điểm vào user.points)
+// Mentor: xác nhận bài làm (cộng mission.points vào user.points, không nhập điểm)
 router.put(
   "/:id/grade",
   authMiddleware,

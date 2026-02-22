@@ -29,7 +29,7 @@ exports.submitMission = async (req, res) => {
     await submission.save();
 
     const populated = await Submission.findById(submission._id)
-      .populate("missionId", "name description steps")
+      .populate("missionId", "name description steps points")
       .populate("userId", "username avatar");
     res.status(201).json(populated);
   } catch (error) {
@@ -54,7 +54,7 @@ exports.checkSubmission = async (req, res) => {
     }
 
     const submission = await Submission.findOne({ userId, missionId })
-      .populate("missionId", "name description steps order mapId")
+      .populate("missionId", "name description steps order mapId points")
       .lean();
 
     res.json({
@@ -74,11 +74,89 @@ exports.getMySubmissions = async (req, res) => {
     const userId = req.userId;
 
     const submissions = await Submission.find({ userId })
-      .populate("missionId", "name description steps order mapId")
+      .populate("missionId", "name description steps order mapId points")
       .sort({ submittedAt: -1 })
       .lean();
 
     res.json(submissions);
+  } catch (error) {
+    res.status(500).json({ error: "Lỗi server" });
+  }
+};
+
+/**
+ * User xem lại các mission đã làm trên một map (dùng ở bước 3 mission "đối chiếu").
+ * GET /submission/me/map/:mapId
+ * Trả về: danh sách mission thuộc map + với mỗi mission đã có submission thì kèm thông tin bài làm.
+ */
+exports.getMySubmissionsByMapId = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const mapId = Number(req.params.mapId);
+    if (Number.isNaN(mapId)) {
+      return res.status(400).json({ error: "mapId không hợp lệ" });
+    }
+
+    const missions = await Mission.find({ mapId, isActive: true })
+      .sort({ order: 1, createdAt: 1 })
+      .lean();
+
+    const missionIds = missions.map((m) => m._id);
+    const submissions = await Submission.find({
+      userId,
+      missionId: { $in: missionIds },
+    })
+      .populate("missionId", "name description steps order mapId points")
+      .lean();
+
+    const submissionByMission = {};
+    submissions.forEach((s) => {
+      const mid = (s.missionId && s.missionId._id) ? s.missionId._id.toString() : s.missionId?.toString();
+      if (mid) submissionByMission[mid] = s;
+    });
+
+    const result = missions.map((mission) => {
+      const mid = mission._id.toString();
+      const submission = submissionByMission[mid] || null;
+      const steps = mission.steps || [];
+      const answers = submission && Array.isArray(submission.answers) ? submission.answers : [];
+      const answersByStep = {};
+      answers.forEach((a) => {
+        const idx = a.stepIndex != null ? Number(a.stepIndex) : -1;
+        if (idx >= 0) answersByStep[idx] = a.value;
+      });
+      const stepsDetail = steps.map((step, stepIndex) => ({
+        stepIndex,
+        stepTitle: step.title || `Bước ${stepIndex + 1}`,
+        value: answersByStep[stepIndex] !== undefined ? answersByStep[stepIndex] : null,
+      }));
+
+      return {
+        mapId,
+        mission: {
+          _id: mission._id,
+          name: mission.name,
+          description: mission.description,
+          order: mission.order,
+          mapId: mission.mapId,
+          steps: mission.steps,
+          points: mission.points,
+        },
+        submitted: !!submission,
+        submission: submission
+          ? {
+              _id: submission._id,
+              answers: submission.answers,
+              status: submission.status,
+              score: submission.score,
+              submittedAt: submission.submittedAt,
+            }
+          : null,
+        stepsDetail,
+      };
+    });
+
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Lỗi server" });
   }
@@ -98,7 +176,7 @@ exports.getSubmissionsByMentor = async (req, res) => {
 
     const submissions = await Submission.find({ userId: { $in: userIds } })
       .populate("userId", "username avatar points")
-      .populate("missionId", "name description steps order mapId")
+      .populate("missionId", "name description steps order mapId points")
       .populate("gradedBy", "username")
       .sort({ submittedAt: -1 })
       .lean();
@@ -110,46 +188,32 @@ exports.getSubmissionsByMentor = async (req, res) => {
 };
 
 /**
- * Mentor chấm điểm bài làm. Điểm được cộng vào user.points và tasksCompleted +1.
- * Body: { score: number }
+ * Mentor xác nhận bài làm. Điểm = mission.points (gán lúc tạo mission), cộng vào user.points và tasksCompleted +1.
+ * Không cần body (chỉ cần gọi PUT để xác nhận).
  */
 exports.gradeSubmission = async (req, res) => {
   try {
     const mentorId = req.userId;
     const { id } = req.params;
-    const rawScore = req.body.score;
-    const score = typeof rawScore === "string" ? parseFloat(rawScore) : Number(rawScore);
-
-    if (rawScore === undefined || rawScore === null || Number.isNaN(score)) {
-      return res.status(400).json({ error: "Thiếu hoặc sai định dạng điểm (score phải là số)" });
-    }
-    if (score < 0) {
-      return res.status(400).json({ error: "Điểm không được âm" });
-    }
 
     const submission = await Submission.findById(id)
-      .populate("userId", "mentorId points tasksCompleted");
+      .populate("userId", "mentorId points tasksCompleted")
+      .populate("missionId", "name description steps points");
     if (!submission) {
       return res.status(404).json({ error: "Bài làm không tồn tại" });
     }
     if (submission.userId.mentorId?.toString() !== mentorId.toString()) {
-      return res.status(403).json({ error: "Bạn chỉ được chấm bài của user do mình quản lý" });
+      return res.status(403).json({ error: "Bạn chỉ được xác nhận bài của user do mình quản lý" });
     }
     if (submission.status === "graded") {
-      const oldScore = submission.score;
-      const user = await User.findById(submission.userId._id);
-      user.points = (user.points || 0) - oldScore + score;
-      await user.save();
-      submission.score = score;
-      submission.gradedAt = new Date();
-      submission.gradedBy = mentorId;
-      await submission.save();
       const updated = await Submission.findById(submission._id)
         .populate("userId", "username avatar points tasksCompleted")
-        .populate("missionId", "name description steps")
+        .populate("missionId", "name description steps points")
         .populate("gradedBy", "username");
       return res.json(updated);
     }
+
+    const score = Math.max(0, Number(submission.missionId?.points) || 0);
 
     submission.status = "graded";
     submission.score = score;
@@ -164,7 +228,7 @@ exports.gradeSubmission = async (req, res) => {
 
     const updated = await Submission.findById(submission._id)
       .populate("userId", "username avatar points tasksCompleted")
-      .populate("missionId", "name description steps")
+      .populate("missionId", "name description steps points")
       .populate("gradedBy", "username");
     res.json(updated);
   } catch (error) {

@@ -6,13 +6,16 @@ const stepSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ["image_upload", "text_list", "star_rating"],
+      enum: ["image_upload", "text_list", "star_rating", "select_from_step"],
     },
     title: { type: String, required: true },
     config: {
       // image_upload: { count: 1 }
       // text_list: { count: 3, label: "Điểm mạnh" }
       // star_rating: { linkedToStepIndex: 0, maxStars: 5, label: "Mức độ hứng thú" }
+      // select_from_step: { sourceStepIndex: 0, maxSelect: 3 } — chọn từ options của bước trước, không nhập mới
+      // showMissionsDoneOnMap: true — hiển thị block "Các mission đã làm ở map" (tất cả mission trên map)
+      // showMissionStep: { missionId: ObjectId, stepIndex: Number } — hiển thị step cụ thể của mission cụ thể (vd: step 3 của "Nhiệm vụ 1")
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
@@ -29,6 +32,8 @@ const missionSchema = new mongoose.Schema({
   x: { type: Number, default: 0 },
   y: { type: Number, default: 0 },
   steps: [stepSchema],
+  /** Số điểm user nhận được khi mentor xác nhận bài làm (nộp đúng mission này) */
+  points: { type: Number, default: 0 },
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

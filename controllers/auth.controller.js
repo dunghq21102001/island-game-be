@@ -69,3 +69,50 @@ exports.changePassword = async (req, res) => {
     res.status(500).json({ error: "Lỗi server" });
   }
 };
+
+/**
+ * Cập nhật profile (avatar, username). Chỉ role "user" được gọi API này.
+ * User chỉ có thể cập nhật chính mình (req.userId).
+ */
+exports.updateProfile = async (req, res) => {
+  try {
+    const { avatar, username } = req.body;
+    const updateData = {};
+
+    if (avatar !== undefined) updateData.avatar = avatar;
+    if (username !== undefined) {
+      if (!username || typeof username !== "string" || !username.trim()) {
+        return res.status(400).json({ error: "Username không hợp lệ" });
+      }
+      const trimmed = username.trim();
+      const existing = await User.findOne({
+        username: trimmed,
+        _id: { $ne: req.userId },
+      });
+      if (existing) {
+        return res.status(400).json({ error: "Tên đăng nhập đã tồn tại" });
+      }
+      updateData.username = trimmed;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        error: "Cần gửi ít nhất một trường để cập nhật (avatar hoặc username)",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(req.userId, updateData, {
+      new: true,
+    })
+      .select("-password")
+      .populate("mentorId", "-password");
+
+    if (!user) {
+      return res.status(404).json({ error: "Người dùng không tồn tại" });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ error: "Lỗi server" });
+  }
+};

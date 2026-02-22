@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Mission = require("../models/mission.js");
 const { uploadImage } = require("../services/imgbb.service.js");
 
@@ -22,33 +23,93 @@ exports.getMissionsByMapId = async (req, res) => {
     const missions = await Mission.find({ mapId, isActive: true })
       .sort({ order: 1, createdAt: 1 })
       .lean();
-    res.json(missions);
+    const payload = missions.map((m) => ({
+      ...m,
+      stepsShowMapSubmissions: getStepsShowMapSubmissions(m.steps),
+      stepsShowMapConfig: getStepsShowMapConfig(m.steps),
+    }));
+    res.json(payload);
   } catch (error) {
     res.status(500).json({ error: "Lỗi server" });
   }
 };
+
+/**
+ * Trả về mảng index (0-based) các step cần hiển thị block "Các mission đã làm ở map".
+ * Step có config.showMissionsDoneOnMap === true hoặc config.showMissionStep thì được đưa vào.
+ */
+function getStepsShowMapSubmissions(steps) {
+  if (!Array.isArray(steps)) return [];
+  return steps
+    .map((s, index) => {
+      const hasShow = (s.config && s.config.showMissionsDoneOnMap === true) ||
+        (s.config && s.config.showMissionStep && s.config.showMissionStep.missionId != null && Number.isInteger(s.config.showMissionStep.stepIndex));
+      return hasShow ? index : -1;
+    })
+    .filter((i) => i >= 0);
+}
+
+/**
+ * Trả về cấu hình chi tiết: mỗi step hiển thị mission/step nào (map nào, mission nào, step nào).
+ * Dùng cho API response để frontend biết rõ sẽ show mission nào + step nào.
+ */
+function getStepsShowMapConfig(steps) {
+  if (!Array.isArray(steps)) return [];
+  return steps
+    .map((s, index) => {
+      const config = s.config || {};
+      if (config.showMissionStep && config.showMissionStep.missionId != null && Number.isInteger(config.showMissionStep.stepIndex)) {
+        return { stepIndex: index, showMissionStep: { missionId: config.showMissionStep.missionId, stepIndex: config.showMissionStep.stepIndex } };
+      }
+      if (config.showMissionsDoneOnMap === true) {
+        return { stepIndex: index, showMissionsDoneOnMap: true };
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
 
 exports.getMissionById = async (req, res) => {
   try {
-    const mission = await Mission.findById(req.params.id);
+    const mission = await Mission.findById(req.params.id).lean();
     if (!mission) {
       return res.status(404).json({ error: "Nhiệm vụ không tồn tại" });
     }
-    res.json(mission);
+    const payload = {
+      ...mission,
+      stepsShowMapSubmissions: getStepsShowMapSubmissions(mission.steps),
+      stepsShowMapConfig: getStepsShowMapConfig(mission.steps),
+    };
+    res.json(payload);
   } catch (error) {
     res.status(500).json({ error: "Lỗi server" });
   }
 };
 
+function normalizeShowMissionStep(showMissionStep) {
+  if (!showMissionStep || showMissionStep.missionId == null) return null;
+  const stepIndex = Number(showMissionStep.stepIndex);
+  if (Number.isNaN(stepIndex) || stepIndex < 0) return null;
+  const missionId = showMissionStep.missionId;
+  return {
+    missionId: mongoose.Types.ObjectId.isValid(missionId) ? (typeof missionId === "string" ? new mongoose.Types.ObjectId(missionId) : missionId) : null,
+    stepIndex,
+  };
+}
+
 exports.createMission = async (req, res) => {
   try {
-    const { mapId, name, description, order, x, y, steps, isActive } = req.body;
+    const { mapId, name, description, order, x, y, steps, points, isActive, stepsShowMapSubmissions } = req.body;
 
     if (!name || !Array.isArray(steps) || steps.length === 0) {
       return res.status(400).json({
         error: "Thiếu name hoặc steps. Steps phải là mảng có ít nhất 1 phần tử.",
       });
     }
+
+    const mapSubsStepIndices = Array.isArray(stepsShowMapSubmissions)
+      ? stepsShowMapSubmissions.map((n) => Number(n)).filter((n) => !Number.isNaN(n) && n >= 0)
+      : [];
 
     const mission = new Mission({
       mapId: mapId || null,
@@ -57,17 +118,32 @@ exports.createMission = async (req, res) => {
       order: order != null ? Number(order) : 0,
       x: x != null ? Number(x) : 0,
       y: y != null ? Number(y) : 0,
-      steps: steps.map((s, i) => ({
-        order: s.order != null ? s.order : i + 1,
-        type: s.type,
-        title: s.title,
-        config: s.config || {},
-      })),
+      steps: steps.map((s, i) => {
+        const cfg = s.config || {};
+        const showMissionStep = normalizeShowMissionStep(cfg.showMissionStep);
+        return {
+          order: s.order != null ? s.order : i + 1,
+          type: s.type,
+          title: s.title,
+          config: {
+            ...cfg,
+            ...(showMissionStep
+              ? { showMissionStep, showMissionsDoneOnMap: false }
+              : { showMissionsDoneOnMap: mapSubsStepIndices.includes(i) }),
+          },
+        };
+      }),
+      points: points != null ? Math.max(0, Number(points)) : 0,
       isActive: isActive !== false,
     });
 
     await mission.save();
-    res.status(201).json(mission);
+    const saved = mission.toObject ? mission.toObject() : mission;
+    res.status(201).json({
+      ...saved,
+      stepsShowMapSubmissions: getStepsShowMapSubmissions(mission.steps),
+      stepsShowMapConfig: getStepsShowMapConfig(mission.steps),
+    });
   } catch (error) {
     if (error.name === "ValidationError") {
       return res.status(400).json({ error: error.message });
@@ -78,7 +154,7 @@ exports.createMission = async (req, res) => {
 
 exports.updateMission = async (req, res) => {
   try {
-    const { mapId, name, description, order, x, y, steps, isActive } = req.body;
+    const { mapId, name, description, order, x, y, steps, points, isActive, stepsShowMapSubmissions } = req.body;
     const updateData = {};
 
     if (mapId !== undefined) updateData.mapId = mapId || null;
@@ -87,25 +163,45 @@ exports.updateMission = async (req, res) => {
     if (order !== undefined) updateData.order = Number(order);
     if (x !== undefined) updateData.x = Number(x);
     if (y !== undefined) updateData.y = Number(y);
+    if (points !== undefined) updateData.points = Math.max(0, Number(points));
     if (isActive !== undefined) updateData.isActive = isActive;
     if (Array.isArray(steps)) {
-      updateData.steps = steps.map((s, i) => ({
-        order: s.order != null ? s.order : i + 1,
-        type: s.type,
-        title: s.title,
-        config: s.config || {},
-      }));
+      const mapSubsStepIndices =
+        stepsShowMapSubmissions !== undefined && Array.isArray(stepsShowMapSubmissions)
+          ? stepsShowMapSubmissions.map((n) => Number(n)).filter((n) => !Number.isNaN(n) && n >= 0)
+          : null;
+      updateData.steps = steps.map((s, i) => {
+        const cfg = s.config || {};
+        const showMissionStep = normalizeShowMissionStep(cfg.showMissionStep);
+        return {
+          order: s.order != null ? s.order : i + 1,
+          type: s.type,
+          title: s.title,
+          config: {
+            ...cfg,
+            ...(showMissionStep
+              ? { showMissionStep, showMissionsDoneOnMap: false }
+              : mapSubsStepIndices !== null
+                ? { showMissionsDoneOnMap: mapSubsStepIndices.includes(i) }
+                : {}),
+          },
+        };
+      });
     }
 
     const mission = await Mission.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
-    });
+    }).lean();
 
     if (!mission) {
       return res.status(404).json({ error: "Nhiệm vụ không tồn tại" });
     }
-    res.json(mission);
+    res.json({
+      ...mission,
+      stepsShowMapSubmissions: getStepsShowMapSubmissions(mission.steps),
+      stepsShowMapConfig: getStepsShowMapConfig(mission.steps),
+    });
   } catch (error) {
     if (error.name === "ValidationError") {
       return res.status(400).json({ error: error.message });
