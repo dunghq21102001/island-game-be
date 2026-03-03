@@ -24,4 +24,23 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
+/** Nếu có token hợp lệ thì gắn req.user, req.userId; không có hoặc lỗi thì next() không trả 401. */
+const optionalAuthMiddleware = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) return next();
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const user = await User.findById(decoded.userId).select('-password');
+    if (!user) return next();
+
+    req.user = user;
+    req.userId = decoded.userId;
+    next();
+  } catch {
+    next();
+  }
+};
+
 module.exports = authMiddleware;
+module.exports.optionalAuthMiddleware = optionalAuthMiddleware;

@@ -2,11 +2,12 @@ const express = require("express");
 const router = express.Router();
 const missionController = require("../controllers/mission.controller.js");
 const authMiddleware = require("../middleware/auth.middleware.js");
+const optionalAuthMiddleware = authMiddleware.optionalAuthMiddleware;
 const { requireRole } = require("../middleware/role.middleware.js");
 
-// Public (hoặc dùng authMiddleware nếu muốn chỉ user đăng nhập mới xem)
+// Public (optional auth: nếu user đăng nhập gọi GET /map/:mapId thì trả thêm completedByUser)
 router.get("/", missionController.getAllMissions);
-router.get("/map/:mapId", missionController.getMissionsByMapId);
+router.get("/map/:mapId", optionalAuthMiddleware, missionController.getMissionsByMapId);
 router.get("/:id", missionController.getMissionById);
 
 // Upload ảnh (user đăng nhập có thể upload khi hoàn thành step)

@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Mission = require("../models/mission.js");
+const Submission = require("../models/submission.js");
 const { uploadImage } = require("../services/imgbb.service.js");
 
 exports.getAllMissions = async (req, res) => {
@@ -16,17 +17,32 @@ exports.getAllMissions = async (req, res) => {
   }
 };
 
-/** Lấy danh sách nhiệm vụ theo mapId (để hiển thị lên ảnh bản đồ theo x, y) */
+/** Lấy danh sách nhiệm vụ theo mapId (để hiển thị lên ảnh bản đồ theo x, y). Nếu role user gọi thì thêm completedByUser cho từng mission. */
 exports.getMissionsByMapId = async (req, res) => {
   try {
     const { mapId } = req.params;
     const missions = await Mission.find({ mapId, isActive: true })
       .sort({ order: 1, createdAt: 1 })
       .lean();
+
+    let completedMissionIds = [];
+    if (req.userId && req.user && req.user.role === "user") {
+      const missionIds = missions.map((m) => m._id);
+      const submissions = await Submission.find({
+        userId: req.userId,
+        missionId: { $in: missionIds },
+      })
+        .select("missionId")
+        .lean();
+      completedMissionIds = submissions.map((s) => s.missionId.toString());
+    }
+
+    const isUserRole = req.user && req.user.role === "user";
     const payload = missions.map((m) => ({
       ...m,
       stepsShowMapSubmissions: getStepsShowMapSubmissions(m.steps),
       stepsShowMapConfig: getStepsShowMapConfig(m.steps),
+      ...(isUserRole ? { completedByUser: completedMissionIds.includes(m._id.toString()) } : {}),
     }));
     res.json(payload);
   } catch (error) {
