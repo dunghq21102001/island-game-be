@@ -34,6 +34,8 @@ const missionSchema = new mongoose.Schema({
   steps: [stepSchema],
   /** Số điểm user nhận được khi mentor xác nhận bài làm (nộp đúng mission này) */
   points: { type: Number, default: 0 },
+  /** Nhiệm vụ chính (mỗi map thường có 1). Hoàn thành nhiệm vụ chính mới được làm nhiệm vụ phụ do mentor tạo. */
+  isMain: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

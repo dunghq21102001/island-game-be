@@ -6,6 +6,8 @@ const authRoutes = require("./routes/auth.routes.js");
 const userRoutes = require("./routes/user.routes.js");
 const missionRoutes = require("./routes/mission.routes.js");
 const submissionRoutes = require("./routes/submission.routes.js");
+const subTaskRoutes = require("./routes/subTask.routes.js");
+const progressRoutes = require("./routes/progress.routes.js");
 
 const app = express();
 
@@ -29,6 +31,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/missions", missionRoutes);
 app.use("/api/submissions", submissionRoutes);
+app.use("/api/sub-tasks", subTaskRoutes);
+app.use("/api/progress", progressRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {

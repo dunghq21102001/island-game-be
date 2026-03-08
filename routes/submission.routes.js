@@ -40,7 +40,7 @@ router.get(
   submissionController.getSubmissionsByMentor
 );
 
-// Mentor: chấm điểm bài làm — body: { score: number } (điểm mentor nhập, >= 0)
+// Mentor: chấm điểm bài làm — body: { score: number, feedback?: string } (điểm bắt buộc, feedback tùy chọn)
 router.put(
   "/:id/grade",
   authMiddleware,

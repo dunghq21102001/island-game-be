@@ -115,7 +115,7 @@ function normalizeShowMissionStep(showMissionStep) {
 
 exports.createMission = async (req, res) => {
   try {
-    const { mapId, name, description, order, x, y, steps, points, isActive, stepsShowMapSubmissions } = req.body;
+    const { mapId, name, description, order, x, y, steps, points, isMain, isActive, stepsShowMapSubmissions } = req.body;
 
     if (!name || !Array.isArray(steps) || steps.length === 0) {
       return res.status(400).json({
@@ -150,6 +150,7 @@ exports.createMission = async (req, res) => {
         };
       }),
       points: points != null ? Math.max(0, Number(points)) : 0,
+      isMain: isMain === true,
       isActive: isActive !== false,
     });
 
@@ -170,7 +171,7 @@ exports.createMission = async (req, res) => {
 
 exports.updateMission = async (req, res) => {
   try {
-    const { mapId, name, description, order, x, y, steps, points, isActive, stepsShowMapSubmissions } = req.body;
+    const { mapId, name, description, order, x, y, steps, points, isMain, isActive, stepsShowMapSubmissions } = req.body;
     const updateData = {};
 
     if (mapId !== undefined) updateData.mapId = mapId || null;
@@ -180,6 +181,7 @@ exports.updateMission = async (req, res) => {
     if (x !== undefined) updateData.x = Number(x);
     if (y !== undefined) updateData.y = Number(y);
     if (points !== undefined) updateData.points = Math.max(0, Number(points));
+    if (isMain !== undefined) updateData.isMain = isMain === true;
     if (isActive !== undefined) updateData.isActive = isActive;
     if (Array.isArray(steps)) {
       const mapSubsStepIndices =

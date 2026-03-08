@@ -25,6 +25,8 @@ const submissionSchema = new mongoose.Schema({
   timeSpentSeconds: { type: Number, default: null },
   /** Điểm do mentor nhập khi chấm bài (chỉ có khi status === "graded") */
   score: { type: Number, default: null },
+  /** Feedback tùy chọn do mentor để lại khi chấm bài */
+  feedback: { type: String, default: null },
   gradedAt: { type: Date, default: null },
   gradedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   submittedAt: { type: Date, default: Date.now },

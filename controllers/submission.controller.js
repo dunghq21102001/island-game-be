@@ -193,14 +193,14 @@ exports.getSubmissionsByMentor = async (req, res) => {
 };
 
 /**
- * Mentor chấm điểm bài làm. Body: { score: number } — điểm do mentor nhập (>= 0).
+ * Mentor chấm điểm bài làm. Body: { score: number, feedback?: string } — điểm bắt buộc, feedback tùy chọn.
  * Điểm được lưu vào submission và cộng vào user.points, tasksCompleted +1.
  */
 exports.gradeSubmission = async (req, res) => {
   try {
     const mentorId = req.userId;
     const { id } = req.params;
-    const { score: inputScore } = req.body;
+    const { score: inputScore, feedback } = req.body;
 
     const submission = await Submission.findById(id)
       .populate("userId", "mentorId points tasksCompleted")
@@ -229,6 +229,7 @@ exports.gradeSubmission = async (req, res) => {
 
     submission.status = "graded";
     submission.score = score;
+    submission.feedback = feedback != null && feedback !== "" ? String(feedback).trim() : null;
     submission.gradedAt = new Date();
     submission.gradedBy = mentorId;
     await submission.save();
