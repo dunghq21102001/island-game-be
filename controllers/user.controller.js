@@ -1,5 +1,20 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/user.js");
+const Submission = require("../models/submission.js");
+
+/** Trả về map { userIdString: totalTimeSpentSeconds } cho các user có submission graded */
+async function getTotalTimeSpentByUserIds(userIds) {
+  if (!userIds?.length) return {};
+  const timeSums = await Submission.aggregate([
+    { $match: { userId: { $in: userIds }, status: "graded" } },
+    { $group: { _id: "$userId", totalTimeSpentSeconds: { $sum: { $ifNull: ["$timeSpentSeconds", 0] } } } },
+  ]);
+  const timeByUser = {};
+  timeSums.forEach((t) => {
+    timeByUser[t._id.toString()] = t.totalTimeSpentSeconds;
+  });
+  return timeByUser;
+}
 
 exports.createUser = async (req, res) => {
   try {
@@ -63,23 +78,39 @@ exports.getUsersByMentorId = async (req, res) => {
     const users = await User.find({ role: "user", mentorId })
       .select("-password")
       .populate("mentorId", "-password")
-      .sort({ points: -1 });
+      .sort({ points: -1 })
+      .lean();
 
-    res.json(users);
+    const userIds = users.map((u) => u._id);
+    const timeByUser = await getTotalTimeSpentByUserIds(userIds);
+
+    const result = users.map((u) => ({
+      ...u,
+      totalTimeSpentSeconds: timeByUser[u._id.toString()] ?? 0,
+    }));
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Lỗi server" });
   }
 };
 
-// Lấy list tất cả user (role=user), sắp xếp points cao -> thấp
+// Lấy list tất cả user (role=user), sắp xếp points cao -> thấp (bảng xếp hạng tổng)
 exports.getLeaderboard = async (req, res) => {
   try {
     const users = await User.find({ role: "user" })
       .select("-password")
       .populate("mentorId", "-password")
-      .sort({ points: -1 });
+      .sort({ points: -1 })
+      .lean();
 
-    res.json(users);
+    const userIds = users.map((u) => u._id);
+    const timeByUser = await getTotalTimeSpentByUserIds(userIds);
+
+    const result = users.map((u) => ({
+      ...u,
+      totalTimeSpentSeconds: timeByUser[u._id.toString()] ?? 0,
+    }));
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Lỗi server" });
   }

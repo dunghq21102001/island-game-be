@@ -4,12 +4,12 @@ const User = require("../models/user.js");
 
 /**
  * User submit bài làm (sau khi hoàn thành mission).
- * Body: { missionId, answers: [...] }
+ * Body: { missionId, answers: [...], timeSpentSeconds?: number }
  */
 exports.submitMission = async (req, res) => {
   try {
     const userId = req.userId;
-    const { missionId, answers } = req.body;
+    const { missionId, answers, timeSpentSeconds } = req.body;
 
     if (!missionId) {
       return res.status(400).json({ error: "Thiếu missionId" });
@@ -20,12 +20,16 @@ exports.submitMission = async (req, res) => {
       return res.status(404).json({ error: "Nhiệm vụ không tồn tại" });
     }
 
-    const submission = new Submission({
+    const payload = {
       userId,
       missionId,
       answers: Array.isArray(answers) ? answers : [],
       status: "submitted",
-    });
+    };
+    if (typeof timeSpentSeconds === "number" && timeSpentSeconds >= 0) {
+      payload.timeSpentSeconds = Math.floor(timeSpentSeconds);
+    }
+    const submission = new Submission(payload);
     await submission.save();
 
     const populated = await Submission.findById(submission._id)
@@ -150,6 +154,7 @@ exports.getMySubmissionsByMapId = async (req, res) => {
               status: submission.status,
               score: submission.score,
               submittedAt: submission.submittedAt,
+              timeSpentSeconds: submission.timeSpentSeconds,
             }
           : null,
         stepsDetail,
@@ -188,13 +193,14 @@ exports.getSubmissionsByMentor = async (req, res) => {
 };
 
 /**
- * Mentor xác nhận bài làm. Điểm = mission.points (gán lúc tạo mission), cộng vào user.points và tasksCompleted +1.
- * Không cần body (chỉ cần gọi PUT để xác nhận).
+ * Mentor chấm điểm bài làm. Body: { score: number } — điểm do mentor nhập (>= 0).
+ * Điểm được lưu vào submission và cộng vào user.points, tasksCompleted +1.
  */
 exports.gradeSubmission = async (req, res) => {
   try {
     const mentorId = req.userId;
     const { id } = req.params;
+    const { score: inputScore } = req.body;
 
     const submission = await Submission.findById(id)
       .populate("userId", "mentorId points tasksCompleted")
@@ -203,7 +209,7 @@ exports.gradeSubmission = async (req, res) => {
       return res.status(404).json({ error: "Bài làm không tồn tại" });
     }
     if (submission.userId.mentorId?.toString() !== mentorId.toString()) {
-      return res.status(403).json({ error: "Bạn chỉ được xác nhận bài của user do mình quản lý" });
+      return res.status(403).json({ error: "Bạn chỉ được chấm bài của user do mình quản lý" });
     }
     if (submission.status === "graded") {
       const updated = await Submission.findById(submission._id)
@@ -213,7 +219,13 @@ exports.gradeSubmission = async (req, res) => {
       return res.json(updated);
     }
 
-    const score = Math.max(0, Number(submission.missionId?.points) || 0);
+    if (inputScore === undefined || inputScore === null || inputScore === "") {
+      return res.status(400).json({ error: "Vui lòng nhập điểm để chấm bài" });
+    }
+    const score = Math.max(0, Number(inputScore));
+    if (Number.isNaN(score)) {
+      return res.status(400).json({ error: "Điểm phải là số hợp lệ (>= 0)" });
+    }
 
     submission.status = "graded";
     submission.score = score;

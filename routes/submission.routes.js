@@ -40,7 +40,7 @@ router.get(
   submissionController.getSubmissionsByMentor
 );
 
-// Mentor: xác nhận bài làm (cộng mission.points vào user.points, không nhập điểm)
+// Mentor: chấm điểm bài làm — body: { score: number } (điểm mentor nhập, >= 0)
 router.put(
   "/:id/grade",
   authMiddleware,

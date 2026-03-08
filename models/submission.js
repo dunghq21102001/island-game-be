@@ -21,7 +21,9 @@ const submissionSchema = new mongoose.Schema({
     enum: ["submitted", "graded"],
     default: "submitted",
   },
-  /** Điểm nhận được khi được xác nhận (= mission.points lúc confirm, chỉ có khi status === "graded") */
+  /** Thời gian làm bài (giây) */
+  timeSpentSeconds: { type: Number, default: null },
+  /** Điểm do mentor nhập khi chấm bài (chỉ có khi status === "graded") */
   score: { type: Number, default: null },
   gradedAt: { type: Date, default: null },
   gradedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
