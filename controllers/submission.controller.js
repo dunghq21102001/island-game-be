@@ -1,6 +1,7 @@
 const Submission = require("../models/submission.js");
 const Mission = require("../models/mission.js");
 const User = require("../models/user.js");
+const badgeService = require("../services/badge.service.js");
 
 /**
  * User submit bài làm (sau khi hoàn thành mission).
@@ -204,7 +205,7 @@ exports.gradeSubmission = async (req, res) => {
 
     const submission = await Submission.findById(id)
       .populate("userId", "mentorId points tasksCompleted")
-      .populate("missionId", "name description steps points");
+      .populate("missionId", "name description steps points order");
     if (!submission) {
       return res.status(404).json({ error: "Bài làm không tồn tại" });
     }
@@ -238,6 +239,16 @@ exports.gradeSubmission = async (req, res) => {
     user.points = (user.points || 0) + score;
     user.tasksCompleted = (user.tasksCompleted || 0) + 1;
     await user.save();
+
+    const missionOrder = submission.missionId?.order != null ? submission.missionId.order : (await Mission.findById(submission.missionId._id || submission.missionId).select("order").lean())?.order;
+    if (missionOrder != null) {
+      await badgeService.checkAndGrantMissionBadges(submission.userId._id, missionOrder);
+      // Nhiệm vụ thứ 3 (order = 2 vì order 0-indexed)
+      if (Number(missionOrder) === 2) {
+        const missionId = submission.missionId._id || submission.missionId;
+        await badgeService.checkAndGrantPhongVienXuatSac(missionId, mentorId);
+      }
+    }
 
     const updated = await Submission.findById(submission._id)
       .populate("userId", "username avatar points tasksCompleted")

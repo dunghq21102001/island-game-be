@@ -8,6 +8,8 @@ const missionRoutes = require("./routes/mission.routes.js");
 const submissionRoutes = require("./routes/submission.routes.js");
 const subTaskRoutes = require("./routes/subTask.routes.js");
 const progressRoutes = require("./routes/progress.routes.js");
+const badgeRoutes = require("./routes/badge.routes.js");
+const path = require("path");
 
 const app = express();
 
@@ -25,6 +27,8 @@ app.options("*", cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
+app.use("/images", express.static(path.join(__dirname, "images")));
+
 connectDB();
 
 app.use("/api/auth", authRoutes);
@@ -33,6 +37,7 @@ app.use("/api/missions", missionRoutes);
 app.use("/api/submissions", submissionRoutes);
 app.use("/api/sub-tasks", subTaskRoutes);
 app.use("/api/progress", progressRoutes);
+app.use("/api/badges", badgeRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {

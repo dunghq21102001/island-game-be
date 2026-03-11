@@ -3,6 +3,7 @@ const SubTaskSubmission = require("../models/subTaskSubmission.js");
 const Submission = require("../models/submission.js");
 const Mission = require("../models/mission.js");
 const User = require("../models/user.js");
+const badgeService = require("../services/badge.service.js");
 
 /**
  * Mentor tạo nhiệm vụ phụ cho một thành viên.
@@ -399,6 +400,8 @@ exports.gradeSubTaskSubmission = async (req, res) => {
     user.points = (user.points || 0) + score;
     user.tasksCompleted = (user.tasksCompleted || 0) + 1;
     await user.save();
+
+    await badgeService.checkAndGrantStreakBadges(submission.userId._id);
 
     const updated = await SubTaskSubmission.findById(submission._id)
       .populate("userId", "username avatar points tasksCompleted")
