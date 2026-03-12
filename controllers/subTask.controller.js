@@ -373,6 +373,9 @@ exports.gradeSubTaskSubmission = async (req, res) => {
     if (submission.userId.mentorId?.toString() !== mentorId.toString()) {
       return res.status(403).json({ error: "Bạn chỉ được chấm bài của thành viên do mình quản lý." });
     }
+    if (submission.subTaskId?.points < inputScore) {
+      return res.status(400).json({ error: `Điểm tối đa cho bài làm này là ${submission.subTaskId?.points}` });
+    }
     if (submission.status === "graded") {
       const updated = await SubTaskSubmission.findById(submission._id)
         .populate("userId", "username avatar points tasksCompleted")
