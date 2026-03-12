@@ -182,7 +182,7 @@ exports.getSubmissionsByMentor = async (req, res) => {
 
     const submissions = await Submission.find({ userId: { $in: userIds } })
       .populate("userId", "username avatar points")
-      .populate("missionId", "name description steps order mapId points")
+      .populate("missionId", "name description steps order mapId points isOnlyConfirmPoint")
       .populate("gradedBy", "username")
       .sort({ submittedAt: -1 })
       .lean();
@@ -211,6 +211,9 @@ exports.gradeSubmission = async (req, res) => {
     }
     if (submission.userId.mentorId?.toString() !== mentorId.toString()) {
       return res.status(403).json({ error: "Bạn chỉ được chấm bài của user do mình quản lý" });
+    }
+    if (!submission.missionId.isOnlyConfirmPoint && submission.missionId.points < inputScore) {
+      return res.status(400).json({ error: `Điểm tối đa cho bài làm này là ${submission.missionId.points}` });
     }
     if (submission.status === "graded") {
       const updated = await Submission.findById(submission._id)

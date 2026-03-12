@@ -36,6 +36,7 @@ const missionSchema = new mongoose.Schema({
   points: { type: Number, default: 0 },
   /** Nhiệm vụ chính (mỗi map thường có 1). Hoàn thành nhiệm vụ chính mới được làm nhiệm vụ phụ do mentor tạo. */
   isMain: { type: Boolean, default: false },
+  isOnlyConfirmPoint: { type: Boolean, default: false }, // Chỉ xác nhận điểm, không cần mentor đánh giá từng step
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
