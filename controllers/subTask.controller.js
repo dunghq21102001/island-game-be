@@ -15,20 +15,69 @@ exports.createSubTask = async (req, res) => {
     const mentorId = req.userId;
     const { assignedToUserId, mainMissionId, name, description, steps, points } = req.body;
 
-    if (!assignedToUserId || !mainMissionId || !name || !Array.isArray(steps) || steps.length === 0) {
+    if (!mainMissionId || !name || !Array.isArray(steps) || steps.length === 0) {
       return res.status(400).json({
-        error: "Thiếu assignedToUserId, mainMissionId, name hoặc steps (mảng có ít nhất 1 phần tử).",
+        error: "Thiếu mainMissionId, name hoặc steps (mảng có ít nhất 1 phần tử).",
       });
     }
-
-    const user = await User.findOne({ _id: assignedToUserId, mentorId, role: "user" });
-    if (!user) {
-      return res.status(403).json({ error: "Chỉ được tạo nhiệm vụ phụ cho thành viên do mình quản lý." });
-    }
-
     const mainMission = await Mission.findById(mainMissionId);
     if (!mainMission) {
       return res.status(404).json({ error: "Nhiệm vụ chính không tồn tại." });
+    }
+
+    const isAdmin = await User.exists({ _id: mentorId, role: "admin" });
+    if (isAdmin) {
+      // TODO: làm ở đây, admin có thể tạo subtask, và subtask admin tạo sẽ được giao cho tất cả user toàn hệ thống
+      if (isAdmin) {
+        const users = await User.find({ role: "user" }).select("_id");
+      
+        if (!users.length) {
+          return res.status(400).json({ error: "Không có user nào trong hệ thống." });
+        }
+      
+        const subTasks = [];
+      
+        for (const u of users) {
+          subTasks.push({
+            mentorId,
+            assignedToUserId: u._id,
+            mainMissionId,
+            name,
+            description: description || "",
+            steps: steps.map((s, i) => ({
+              order: s.order != null ? s.order : i + 1,
+              type: s.type,
+              title: s.title,
+              config: s.config || {},
+            })),
+            points: points != null ? Math.max(0, Number(points)) : 0,
+            isActive: true,
+          });
+        }
+      
+        const created = await SubTask.insertMany(subTasks);
+      
+        const populated = await SubTask.find({
+          _id: { $in: created.map((s) => s._id) },
+        })
+          .populate("assignedToUserId", "username avatar")
+          .populate("mainMissionId", "name");
+      
+        return res.status(201).json({
+          message: `Đã tạo ${created.length} nhiệm vụ phụ cho toàn bộ user`,
+          data: populated,
+        });
+      }
+    }
+
+    if (!assignedToUserId) {
+      return res.status(400).json({
+        error: "Thiếu assignedToUserId (Bạn chưa assign mission này cho ai).",
+      });
+    }
+    const user = await User.findOne({ _id: assignedToUserId, mentorId, role: "user" });
+    if (!user) {
+      return res.status(403).json({ error: "Chỉ được tạo nhiệm vụ phụ cho thành viên do mình quản lý." });
     }
 
     const gradedSubmission = await Submission.findOne({

@@ -46,8 +46,11 @@ async function checkAndGrantPhongVienXuatSac(missionId, mentorId) {
   const usersOfMentor = await User.find({ mentorId, role: "user" })
     .select("_id")
     .lean();
-  const userIds = usersOfMentor.map((u) => u._id);
 
+  const userIds = usersOfMentor.map((u) => u._id);
+  if (!userIds.length) return;
+
+  // tìm submission được chấm sớm nhất trong team
   const firstGraded = await Submission.findOne({
     missionId,
     userId: { $in: userIds },
@@ -57,9 +60,19 @@ async function checkAndGrantPhongVienXuatSac(missionId, mentorId) {
     .select("userId")
     .lean();
 
-  if (firstGraded && firstGraded.userId) {
-    await grantBadge(firstGraded.userId, "phong_vien_xuat_sac");
-  }
+  if (!firstGraded) return;
+
+  const fastestUserId = firstGraded.userId;
+  const badgeCode = "phong_vien_xuat_sac";
+
+  // xoá badge của các user trong team (trừ người nhanh nhất)
+  await UserBadge.deleteMany({
+    badgeCode,
+    userId: { $in: userIds, $ne: fastestUserId },
+  });
+
+  // cấp badge cho người nhanh nhất
+  await grantBadge(fastestUserId, badgeCode);
 }
 
 /**
